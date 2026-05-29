@@ -44,3 +44,5 @@ Este es un proyecto de código abierto desarrollado con asistencia de IA, creado
 
 ---
 *Hecho con 💡 para estudiantes.*
+---
+Version *1.0*
