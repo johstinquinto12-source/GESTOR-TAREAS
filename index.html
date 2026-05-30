@@ -884,9 +884,15 @@ function showPanel(id){
 }
 function entrar(){
   document.getElementById('portada').classList.add('oculto');
-  const saved = sessionStorage.getItem('h');
+  const saved = localStorage.getItem('h');
   if(saved){
-    try{ restaurar(JSON.parse(saved)); setTimeout(()=>{buildMain();showPanel('panel-principal');},600); return; }
+    try{
+    restaurar(JSON.parse(saved));
+    // Restaurar fcDatos guardado (tareas, horas, descripciones)
+    const savedFC = localStorage.getItem('fcDatos');
+    if(savedFC) fcDatos = JSON.parse(savedFC);
+    setTimeout(()=>{buildMain();showPanel('panel-principal');},600); return;
+  }
     catch(e){}
   }
   setTimeout(()=>showPanel('panel-horario'),600);
@@ -902,8 +908,12 @@ function restaurar(data){
   });
 }
 function volverHorario(){
-  sessionStorage.removeItem('h');
-  document.getElementById('sig-wrap').style.display='flex';
+  localStorage.removeItem('h');
+  localStorage.removeItem('fcDatos');
+  fcDatos={};
+  // Mostrar botón siguiente si hay pills
+  const hayPills=document.querySelector('.pill')||document.getElementById('otros-lista').children.length>0;
+  document.getElementById('sig-wrap').style.display=hayPills?'flex':'none';
   document.getElementById('fab-config').style.display='none';
   showPanel('panel-horario');
 }
@@ -911,7 +921,7 @@ document.getElementById('btn-sig').addEventListener('click',()=>{
   const data=[]; document.querySelectorAll('.pill').forEach(p=>{
     data.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
   });
-  sessionStorage.setItem('h',JSON.stringify(data));
+  localStorage.setItem('h',JSON.stringify(data));
   document.getElementById('sig-wrap').style.display='none';
   buildMain(); showPanel('panel-principal');
 });
@@ -1033,7 +1043,7 @@ function initCarouselInput(){
   vp.addEventListener('touchend', e=>{
     if(!dragging) return; dragging=false;
     const dx = sx-e.changedTouches[0].clientX;
-    if(Math.abs(dx)>30) moveFC(dx>0?1:-1);
+    if(Math.abs(dx)>80) moveFC(dx>0?1:-1);
   });
 
   // ─ Mouse (PC / tablet con mouse)
@@ -1043,7 +1053,7 @@ function initCarouselInput(){
   window.addEventListener('mouseup', e=>{
     if(!dragging) return; dragging=false; vp.style.cursor='grab';
     const dx=sx-e.clientX;
-    if(Math.abs(dx)>30) moveFC(dx>0?1:-1);
+    if(Math.abs(dx)>80) moveFC(dx>0?1:-1);
   });
 }
 
@@ -1085,13 +1095,13 @@ function renombrarFC(nombreViejo,inp){
 function toggleTarea(nombre,row){
   fcDatos[nombre].tarea=!fcDatos[nombre].tarea;
   row.classList.toggle('on',fcDatos[nombre].tarea);
-  updateStats(); renderResumen();
+  updateStats(); renderResumen(); saveFCDatos();
 }
-function saveDesc(nombre,el){ fcDatos[nombre].desc=el.value; }
+function saveDesc(nombre,el){ fcDatos[nombre].desc=el.value; saveFCDatos(); }
 function limpiarFC(nombre){
   if(!fcDatos[nombre]) return;
   Object.assign(fcDatos[nombre],{tarea:false,fecha:'',tiempo:0,desc:''});
-  updateStats(); renderResumen(); renderFC();
+  updateStats(); renderResumen(); renderFC(); saveFCDatos();
 }
 function openFecha(nombre){ fcActivo=nombre; document.getElementById('inp-fecha').value=fcDatos[nombre].fecha||''; openModal('modal-fecha'); }
 function ajustarTiempo(delta){
@@ -1104,15 +1114,18 @@ function openTiempo(nombre){ fcActivo=nombre; document.getElementById('inp-tiemp
 function saveFecha(){
   const v=document.getElementById('inp-fecha').value;
   if(fcActivo&&v) fcDatos[fcActivo].fecha=v;
-  closeModal('modal-fecha'); renderFC(); notifFecha();
+  closeModal('modal-fecha'); renderFC(); notifFecha(); saveFCDatos();
 }
 function saveTiempo(){
   const v=parseFloat(document.getElementById('inp-tiempo').value);
   if(fcActivo&&!isNaN(v)&&v>0) fcDatos[fcActivo].tiempo=v;
-  closeModal('modal-tiempo'); updateStats(); renderResumen(); renderFC();
+  closeModal('modal-tiempo'); updateStats(); renderResumen(); renderFC(); saveFCDatos();
 }
 
 /* ── ESTADÍSTICAS ───────────────────────────────────────────── */
+function saveFCDatos(){
+  try{ localStorage.setItem('fcDatos', JSON.stringify(fcDatos)); }catch(e){}
+}
 function updateStats(){
   let t=0, h=0;
   Object.values(fcDatos).forEach(d=>{ if(d.tarea)t++; h+=d.tiempo||0; });
