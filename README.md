@@ -1,4 +1,4 @@
-# 📋 Gestor de Tareas Escolar
+# 📋 Gestor de Tareas
 
 Una Aplicación Web Progresiva (PWA) rápida, intuitiva y visualmente atractiva diseñada para ayudar a los estudiantes a organizar su semana escolar, gestionar sus tareas y calcular sus tiempos de estudio. 
 
