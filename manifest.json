@@ -2,7 +2,7 @@
   "name": "Gestor de Tareas",
   "short_name": "Tareas",
   "description": "Organiza tu semana escolar y gestiona tus tareas con alertas inteligentes.",
-  "start_url": "GESTOR-TAREAS/index.html",
+  "start_url": "/GESTOR-TAREAS/index.html",
   "scope": "/GESTOR-TAREAS/",
   "display": "standalone",
   "orientation": "portrait-primary",
