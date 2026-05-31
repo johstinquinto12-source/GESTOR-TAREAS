@@ -884,18 +884,25 @@ function showPanel(id){
 }
 function entrar(){
   document.getElementById('portada').classList.add('oculto');
-  const saved = localStorage.getItem('h');
+  const saved   = localStorage.getItem('h');
+  const savedFC = localStorage.getItem('fcDatos');
+
   if(saved){
     try{
-    restaurar(JSON.parse(saved));
-    // Restaurar fcDatos guardado (tareas, horas, descripciones)
-    const savedFC = localStorage.getItem('fcDatos');
-    if(savedFC) fcDatos = JSON.parse(savedFC);
-    setTimeout(()=>{buildMain();showPanel('panel-principal');},600); return;
+      // 1. Restaurar pills del horario en el DOM
+      restaurar(JSON.parse(saved));
+      // 2. Restaurar fcDatos ANTES de buildMain para no perder tareas/horas/desc
+      if(savedFC) fcDatos = JSON.parse(savedFC);
+      // 3. buildMain sincroniza pero ahora con fcDatos ya cargado
+      setTimeout(()=>{ buildMain(); showPanel('panel-principal'); }, 600);
+      return;
+    } catch(e){
+      // Si hay corrupción, limpiar y empezar de nuevo
+      localStorage.removeItem('h');
+      localStorage.removeItem('fcDatos');
+    }
   }
-    catch(e){}
-  }
-  setTimeout(()=>showPanel('panel-horario'),600);
+  setTimeout(()=>showPanel('panel-horario'), 600);
 }
 function restaurar(data){
   data.forEach(it=>{
@@ -946,11 +953,18 @@ function buildMain(){
     while(map[key] && !map[key].esOtro) key=nombre+' '+(++suf);
     map[key]={dias:[],color,esOtro:true};
   });
-  // Sincronizar fcDatos
+  // Sincronizar fcDatos: preservar datos existentes (tarea, fecha, tiempo, desc)
   Object.keys(map).forEach(n=>{
-    if(!fcDatos[n]) fcDatos[n]={tarea:false,fecha:'',tiempo:0,desc:'',esOtro:map[n].esOtro||false};
-    fcDatos[n].dias=map[n].dias; fcDatos[n].color=map[n].color; fcDatos[n].esOtro=map[n].esOtro||false;
+    if(!fcDatos[n]){
+      // Nueva materia: inicializar vacía
+      fcDatos[n]={tarea:false,fecha:'',tiempo:0,desc:'',esOtro:map[n].esOtro||false};
+    }
+    // Siempre actualizar días y color (pueden cambiar al editar)
+    fcDatos[n].dias  = map[n].dias;
+    fcDatos[n].color = map[n].color;
+    fcDatos[n].esOtro= map[n].esOtro||false;
   });
+  // Eliminar solo las materias que ya no existen en el horario
   Object.keys(fcDatos).forEach(k=>{ if(!map[k]) delete fcDatos[k]; });
   if(fcIdx>=Object.keys(fcDatos).length) fcIdx=0;
   renderFC(); renderResumen(); updateStats();
@@ -1124,7 +1138,15 @@ function saveTiempo(){
 
 /* ── ESTADÍSTICAS ───────────────────────────────────────────── */
 function saveFCDatos(){
-  try{ localStorage.setItem('fcDatos', JSON.stringify(fcDatos)); }catch(e){}
+  try{
+    localStorage.setItem('fcDatos', JSON.stringify(fcDatos));
+    // También re-guardar el horario por si acaso
+    const data=[];
+    document.querySelectorAll('.pill').forEach(p=>{
+      data.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
+    });
+    if(data.length) localStorage.setItem('h', JSON.stringify(data));
+  }catch(e){}
 }
 function updateStats(){
   let t=0, h=0;
