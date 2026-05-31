@@ -802,7 +802,7 @@ function addMateria(dia){
     <button class="pill-btn pill-del"  onclick="delPill(this)">✕</button>`;
   pw.appendChild(pill);
   inp.value = ''; document.getElementById('iw-'+dia).classList.remove('open');
-  checkSig();
+  checkSig(); guardarTodo();
 }
 function editPill(btn){
   const pill=btn.closest('.pill'), txt=pill.querySelector('.pill-txt');
@@ -816,12 +816,12 @@ function savePill(btn,txt,pill){
   const v=txt.textContent.trim(); txt.textContent=v||'Sin nombre';
   pill.dataset.nombre=v||'Sin nombre'; txt.contentEditable='false';
   btn.dataset.e='0'; btn.textContent='✏️'; txt.onkeydown=null;
-  window.getSelection().removeAllRanges();
+  window.getSelection().removeAllRanges(); guardarTodo();
 }
 function delPill(btn){
   const pill=btn.closest('.pill');
   Object.assign(pill.style,{transform:'scale(0)',opacity:'0',transition:'transform .2s,opacity .2s'});
-  setTimeout(()=>{pill.remove();checkSig();},200);
+  setTimeout(()=>{pill.remove();checkSig();guardarTodo();},200);
 }
 function checkSig(){
   const hay = document.querySelector('.pill') || document.getElementById('otros-lista').children.length>0;
@@ -847,7 +847,7 @@ function agregarOtro(){
       </div>
     </div>`;
   document.getElementById('otros-lista').appendChild(el);
-  checkSig();
+  checkSig(); guardarTodo();
 }
 function toggleEditOtro(id){
   const inp=document.getElementById('nombre-'+id), btn=document.getElementById('edit-btn-'+id);
@@ -863,12 +863,12 @@ function guardarNombreOtro(id){
   if(!inp||!btn) return;
   if(!inp.value.trim()) inp.value='Otro';
   inp.readOnly=true; inp.style.pointerEvents='none'; inp.style.cursor='default';
-  inp.style.background='transparent'; inp.style.borderColor='transparent'; btn.textContent='✏️';
+  inp.style.background='transparent'; inp.style.borderColor='transparent'; btn.textContent='✏️'; guardarTodo();
 }
 function eliminarOtro(id,btn){
   const card=btn.closest('.dia-card');
   Object.assign(card.style,{transform:'scale(0)',opacity:'0',transition:'transform .2s,opacity .2s'});
-  setTimeout(()=>{card.remove();delete colorMap[id];checkSig();},200);
+  setTimeout(()=>{card.remove();delete colorMap[id];checkSig();guardarTodo();},200);
 }
 
 /* ── NAVEGACIÓN ENTRE PANELES ───────────────────────────────── */
@@ -884,22 +884,38 @@ function showPanel(id){
 }
 function entrar(){
   document.getElementById('portada').classList.add('oculto');
-  const saved   = localStorage.getItem('h');
-  const savedFC = localStorage.getItem('fcDatos');
+  const saved        = localStorage.getItem('h');
+  const savedOtros   = localStorage.getItem('hOtros');
+  const savedFC      = localStorage.getItem('fcDatos');
+  const horarioListo = localStorage.getItem('horarioListo');
 
   if(saved){
     try{
-      // 1. Restaurar pills del horario en el DOM
-      restaurar(JSON.parse(saved));
-      // 2. Restaurar fcDatos ANTES de buildMain para no perder tareas/horas/desc
-      if(savedFC) fcDatos = JSON.parse(savedFC);
-      // 3. buildMain sincroniza pero ahora con fcDatos ya cargado
-      setTimeout(()=>{ buildMain(); showPanel('panel-principal'); }, 600);
-      return;
+      const pillsData = JSON.parse(saved);
+      if(pillsData.length || horarioListo){
+        // Restaurar pills
+        restaurar(pillsData);
+        // Restaurar tarjetas Otros
+        if(savedOtros) restaurarOtros(JSON.parse(savedOtros));
+        // Restaurar fcDatos ANTES de buildMain
+        if(savedFC) fcDatos = JSON.parse(savedFC);
+        setTimeout(()=>{
+          buildMain();
+          // Si el horario ya fue confirmado, ir directo a M3
+          if(horarioListo) showPanel('panel-principal');
+          else {
+            // Horario en progreso: volver a M2 con las pills ya puestas
+            checkSig();
+            showPanel('panel-horario');
+          }
+        }, 600);
+        return;
+      }
     } catch(e){
-      // Si hay corrupción, limpiar y empezar de nuevo
       localStorage.removeItem('h');
+      localStorage.removeItem('hOtros');
       localStorage.removeItem('fcDatos');
+      localStorage.removeItem('horarioListo');
     }
   }
   setTimeout(()=>showPanel('panel-horario'), 600);
@@ -914,9 +930,32 @@ function restaurar(data){
     if(!colorMap[it.nombre.trim().toLowerCase()]) colorMap[it.nombre.trim().toLowerCase()]=it.color;
   });
 }
+function restaurarOtros(datos){
+  if(!datos||!datos.length) return;
+  datos.forEach(it=>{
+    otrosCount++;
+    const id = it.id||('otro-'+otrosCount);
+    colorMap[id]=it.color||'#636e72';
+    const el=document.createElement('div'); el.className='dia-card'; el.dataset.otroId=id;
+    el.innerHTML=`
+      <div class="dia-head">
+        <div class="dia-bar" style="background:${it.color}"></div>
+        <div class="dia-body" style="gap:6px">
+          <input class="dia-input otro-nombre-inp" id="nombre-${id}" value="${it.nombre||'Otro'}"
+            style="flex:1;font-size:15px;padding:6px 12px;pointer-events:none;cursor:default;background:transparent;border-color:transparent"
+            readonly oninput="capInput(this)" onkeydown="if(event.key==='Enter') guardarNombreOtro('${id}')">
+          <button class="fc-trash" id="edit-btn-${id}" onclick="toggleEditOtro('${id}')" style="margin-right:4px" title="Editar nombre">✏️</button>
+          <button class="fc-trash" onclick="eliminarOtro('${id}',this)" title="Eliminar">🗑️</button>
+        </div>
+      </div>`;
+    document.getElementById('otros-lista').appendChild(el);
+  });
+}
 function volverHorario(){
   localStorage.removeItem('h');
+  localStorage.removeItem('hOtros');
   localStorage.removeItem('fcDatos');
+  localStorage.removeItem('horarioListo');
   fcDatos={};
   // Mostrar botón siguiente si hay pills
   const hayPills=document.querySelector('.pill')||document.getElementById('otros-lista').children.length>0;
@@ -929,6 +968,7 @@ document.getElementById('btn-sig').addEventListener('click',()=>{
     data.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
   });
   localStorage.setItem('h',JSON.stringify(data));
+  localStorage.setItem('horarioListo','1');
   document.getElementById('sig-wrap').style.display='none';
   buildMain(); showPanel('panel-principal');
 });
@@ -1137,17 +1177,35 @@ function saveTiempo(){
 }
 
 /* ── ESTADÍSTICAS ───────────────────────────────────────────── */
-function saveFCDatos(){
+// Guarda TODO el estado de la app en localStorage
+function guardarTodo(){
   try{
-    localStorage.setItem('fcDatos', JSON.stringify(fcDatos));
-    // También re-guardar el horario por si acaso
-    const data=[];
+    // 1. Pills del horario (M2)
+    const pills=[];
     document.querySelectorAll('.pill').forEach(p=>{
-      data.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
+      pills.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
     });
-    if(data.length) localStorage.setItem('h', JSON.stringify(data));
-  }catch(e){}
+    // 2. Tarjetas "Otros" (M2)
+    const otros=[];
+    document.querySelectorAll('#otros-lista .dia-card').forEach(card=>{
+      const inp=card.querySelector('.otro-nombre-inp');
+      otros.push({id:card.dataset.otroId, nombre:inp?inp.value.trim():'Otro', color:colorMap[card.dataset.otroId]||'#636e72'});
+    });
+    // 3. Estado del menú actual
+    const enPrincipal = document.getElementById('panel-principal').classList.contains('vis');
+    // Solo guardar 'h' si hay pills o estamos en el principal
+    if(pills.length || enPrincipal){
+      localStorage.setItem('h', JSON.stringify(pills));
+    }
+    if(otros.length) localStorage.setItem('hOtros', JSON.stringify(otros));
+    // 4. fcDatos con tareas/fechas/tiempos/descs
+    localStorage.setItem('fcDatos', JSON.stringify(fcDatos));
+    // 5. Flag de si el horario ya fue confirmado (pasó por "Siguiente")
+    if(enPrincipal) localStorage.setItem('horarioListo','1');
+  }catch(e){ console.warn('Error guardando:',e); }
 }
+// Alias para compatibilidad
+function saveFCDatos(){ guardarTodo(); }
 function updateStats(){
   let t=0, h=0;
   Object.values(fcDatos).forEach(d=>{ if(d.tarea)t++; h+=d.tiempo||0; });
