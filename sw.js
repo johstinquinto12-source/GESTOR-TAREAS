@@ -3,7 +3,7 @@
    Estrategia: Cache First con fallback a red
    ═══════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'gestor-tareas-v1';
+const CACHE_NAME = 'gestor-tareas-v2';
 
 // Archivos que se cachean al instalar
 const ARCHIVOS_CACHE = [
