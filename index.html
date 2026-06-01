@@ -884,41 +884,38 @@ function showPanel(id){
 }
 function entrar(){
   document.getElementById('portada').classList.add('oculto');
-  const saved        = localStorage.getItem('h');
-  const savedOtros   = localStorage.getItem('hOtros');
-  const savedFC      = localStorage.getItem('fcDatos');
-  const horarioListo = localStorage.getItem('horarioListo');
 
-  if(saved){
-    try{
-      const pillsData = JSON.parse(saved);
-      if(pillsData.length || horarioListo){
-        // Restaurar pills
-        restaurar(pillsData);
-        // Restaurar tarjetas Otros
-        if(savedOtros) restaurarOtros(JSON.parse(savedOtros));
-        // Restaurar fcDatos ANTES de buildMain
-        if(savedFC) fcDatos = JSON.parse(savedFC);
-        setTimeout(()=>{
-          buildMain();
-          // Si el horario ya fue confirmado, ir directo a M3
-          if(horarioListo) showPanel('panel-principal');
-          else {
-            // Horario en progreso: volver a M2 con las pills ya puestas
-            checkSig();
-            showPanel('panel-horario');
-          }
-        }, 600);
-        return;
+  // Leer cada clave por separado con manejo de error individual
+  let pillsData   = [];
+  let otrosData   = [];
+  let fcGuardado  = {};
+  let listo       = false;
+
+  try { const r=localStorage.getItem('h');         if(r) pillsData  = JSON.parse(r); } catch(e){}
+  try { const r=localStorage.getItem('hOtros');    if(r) otrosData  = JSON.parse(r); } catch(e){}
+  try { const r=localStorage.getItem('fcDatos');   if(r) fcGuardado = JSON.parse(r); } catch(e){}
+  try { listo = localStorage.getItem('horarioListo')==='1'; } catch(e){}
+
+  const hayDatos = pillsData.length>0 || otrosData.length>0 || listo;
+
+  if(hayDatos){
+    // Restaurar DOM
+    if(pillsData.length) restaurar(pillsData);
+    if(otrosData.length) restaurarOtros(otrosData);
+    // Cargar fcDatos ANTES de buildMain para no pisarlo
+    if(Object.keys(fcGuardado).length) fcDatos = fcGuardado;
+    setTimeout(()=>{
+      buildMain();
+      if(listo){
+        showPanel('panel-principal');
+      } else {
+        checkSig();
+        showPanel('panel-horario');
       }
-    } catch(e){
-      localStorage.removeItem('h');
-      localStorage.removeItem('hOtros');
-      localStorage.removeItem('fcDatos');
-      localStorage.removeItem('horarioListo');
-    }
+    }, 600);
+  } else {
+    setTimeout(()=>showPanel('panel-horario'), 600);
   }
-  setTimeout(()=>showPanel('panel-horario'), 600);
 }
 function restaurar(data){
   data.forEach(it=>{
@@ -967,10 +964,9 @@ document.getElementById('btn-sig').addEventListener('click',()=>{
   const data=[]; document.querySelectorAll('.pill').forEach(p=>{
     data.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
   });
-  localStorage.setItem('h',JSON.stringify(data));
   localStorage.setItem('horarioListo','1');
   document.getElementById('sig-wrap').style.display='none';
-  buildMain(); showPanel('panel-principal');
+  buildMain(); showPanel('panel-principal'); guardarTodo();
 });
 
 /* ── MENÚ PRINCIPAL: CONSTRUIR DATOS ────────────────────────── */
@@ -1179,32 +1175,31 @@ function saveTiempo(){
 /* ── ESTADÍSTICAS ───────────────────────────────────────────── */
 // Guarda TODO el estado de la app en localStorage
 function guardarTodo(){
+  try{ localStorage.setItem('fcDatos', JSON.stringify(fcDatos)); }catch(e){}
+
   try{
-    // 1. Pills del horario (M2)
     const pills=[];
     document.querySelectorAll('.pill').forEach(p=>{
       pills.push({nombre:p.dataset.nombre, dia:p.dataset.dia, color:p.dataset.color});
     });
-    // 2. Tarjetas "Otros" (M2)
+    localStorage.setItem('h', JSON.stringify(pills));
+  }catch(e){}
+
+  try{
     const otros=[];
     document.querySelectorAll('#otros-lista .dia-card').forEach(card=>{
       const inp=card.querySelector('.otro-nombre-inp');
       otros.push({id:card.dataset.otroId, nombre:inp?inp.value.trim():'Otro', color:colorMap[card.dataset.otroId]||'#636e72'});
     });
-    // 3. Estado del menú actual
-    const enPrincipal = document.getElementById('panel-principal').classList.contains('vis');
-    // Solo guardar 'h' si hay pills o estamos en el principal
-    if(pills.length || enPrincipal){
-      localStorage.setItem('h', JSON.stringify(pills));
+    localStorage.setItem('hOtros', JSON.stringify(otros));
+  }catch(e){}
+
+  try{
+    if(document.getElementById('panel-principal').classList.contains('vis')){
+      localStorage.setItem('horarioListo','1');
     }
-    if(otros.length) localStorage.setItem('hOtros', JSON.stringify(otros));
-    // 4. fcDatos con tareas/fechas/tiempos/descs
-    localStorage.setItem('fcDatos', JSON.stringify(fcDatos));
-    // 5. Flag de si el horario ya fue confirmado (pasó por "Siguiente")
-    if(enPrincipal) localStorage.setItem('horarioListo','1');
-  }catch(e){ console.warn('Error guardando:',e); }
+  }catch(e){}
 }
-// Alias para compatibilidad
 function saveFCDatos(){ guardarTodo(); }
 function updateStats(){
   let t=0, h=0;
