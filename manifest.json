@@ -1,0 +1,28 @@
+{
+  "name": "Gestor de Tareas",
+  "short_name": "Tareas",
+  "description": "Organiza tu semana escolar y gestiona tus tareas con alertas inteligentes.",
+  "start_url": "/GESTOR-TAREAS/index.html",
+  "scope": "/GESTOR-TAREAS/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "background_color": "#eef2ff",
+  "theme_color": "#0984e3",
+  "icons": [
+    {
+      "src": "Logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "Logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": []
+}
